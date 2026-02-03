@@ -1,95 +1,95 @@
+// index.js
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { Pool } from "pg";
+import nodemailer from "nodemailer";
 
-        import express from 'express';
-        import cors from 'cors';
-        import pkg from 'pg';
-        import nodemailer from 'nodemailer';
-        import dotenv from 'dotenv';
+// Load environment variables
+dotenv.config();
 
-        dotenv.config();
-        const { Pool } = pkg;
+// Initialize Express
+const app = express();
 
-        const PORT = process.env.PORT || 5000
-        app.listen(PORT, () => console.log(`Server running on ${PORT}`))
+// Middleware
+app.use(cors());
+app.use(express.json());
 
+// PostgreSQL connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-        const app = express();
-        app.use(cors());
-        app.use(express.json());
+// Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: parseInt(process.env.EMAIL_PORT),
+  secure: false, // true if port 465
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
-        const pool = new Pool({
-          connectionString: process.env.DATABASE_URL,
-        });
+// Test email transporter
+transporter.verify((error, success) => {
+  if (error) console.error("Email transporter error:", error);
+  else console.log("Email transporter ready");
+});
 
-        const path = require('path')
-        app.use(express.static(path.join(__dirname, '../frontend/dist')))
+// Routes
+app.get("/api/test", (req, res) => {
+  res.json({ message: "API is working!" });
+});
 
-        app.get('*', (req, res) => {
-          res.sendFile(path.join(__dirname, '../frontend/dist/index.html'))
-        })
+// Create order
+app.post("/api/orders", async (req, res) => {
+  try {
+    const { name, email, phone, pets, petCount, startDate, endDate, time, description } = req.body;
 
-        app.post('/api/orders', async (req, res) => {
-          const {
-            petType,
-            petCount,
-            startDate,
-            endDate,
-            dailyTime,
-            description,
-            email,
-            phone,
-            estimatedCost
-          } = req.body;
+    // Insert order into PostgreSQL
+    const query = `
+      INSERT INTO orders(name, email, phone, pets, pet_count, start_date, end_date, time, description)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING id
+    `;
+    const values = [name, email, phone, pets, petCount, startDate, endDate, time, description];
+    const result = await pool.query(query, values);
 
-          await pool.query(`
-            CREATE TABLE IF NOT EXISTS orders (
-              id SERIAL PRIMARY KEY,
-              pet_type TEXT,
-              pet_count INT,
-              start_date DATE,
-              end_date DATE,
-              daily_time TEXT,
-              description TEXT,
-              email TEXT,
-              phone TEXT,
-              estimated_cost NUMERIC,
-              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-          `);
+    // Send email notification
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: process.env.EMAIL_TO,
+      subject: `New Pet Care Order #${result.rows[0].id}`,
+      html: `
+        <h2>New Order Received</h2>
+        <p><strong>Name:</strong> ${name}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Phone:</strong> ${phone}</p>
+        <p><strong>Pets:</strong> ${pets}</p>
+        <p><strong>Number of Pets:</strong> ${petCount}</p>
+        <p><strong>Start Date:</strong> ${startDate}</p>
+        <p><strong>End Date:</strong> ${endDate}</p>
+        <p><strong>Time:</strong> ${time}</p>
+        <p><strong>Description:</strong> ${description}</p>
+      `,
+    };
 
-          await pool.query(
-            `INSERT INTO orders 
-            (pet_type, pet_count, start_date, end_date, daily_time, description, email, phone, estimated_cost)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-            [petType, petCount, startDate, endDate, dailyTime, description, email, phone, estimatedCost]
-          );
+    transporter.sendMail(mailOptions, (err, info) => {
+      if (err) console.error("Error sending email:", err);
+      else console.log("Email sent:", info.response);
+    });
 
-          const transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: process.env.EMAIL_PORT,
-            secure: false,
-            auth: {
-              user: process.env.EMAIL_USER,
-              pass: process.env.EMAIL_PASS,
-            },
-          });
+    // Respond to client
+    res.json({ success: true, orderId: result.rows[0].id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
-          await transporter.sendMail({
-            from: `"Pet Care Orders" <${process.env.EMAIL_USER}>`,
-            to: process.env.EMAIL_TO,
-            subject: "New Pet Care Order",
-            text: `New order received:
-Pet: ${petType}
-Count: ${petCount}
-Dates: ${startDate} to ${endDate}
-Time: ${dailyTime}
-Estimated Cost: $${estimatedCost}
-Contact: ${email}, ${phone}
-Notes: ${description}`
-          });
+// Dynamic port
+const PORT = process.env.PORT || 5000;
 
-          res.json({ success: true });
-        });
-
-        app.listen(process.env.PORT || 5000, () =>
-          console.log('Backend running')
-        );
+// Start server
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

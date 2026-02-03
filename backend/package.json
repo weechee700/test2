@@ -1,0 +1,20 @@
+"scripts": {
+  "dev": "nodemon index.js",
+  "start": "node index.js"
+}
+
+{
+  "name": "pet-care-backend",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.8",
+    "pg": "^8.11.3"
+  }
+}

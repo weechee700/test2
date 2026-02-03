@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .input {
+    @apply w-full px-5 py-4 rounded-2xl border border-slate-200
+           focus:outline-none focus:ring-2 focus:ring-emerald-300
+           transition bg-white;
+  }
+
+  .label {
+    @apply block mb-2 text-sm font-medium text-slate-600;
+  }
+}

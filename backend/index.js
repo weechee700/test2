@@ -4,6 +4,8 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { Pool } from "pg";
 import nodemailer from "nodemailer";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Load environment variables
 dotenv.config();
@@ -37,12 +39,11 @@ transporter.verify((error, success) => {
   else console.log("Email transporter ready");
 });
 
-// Routes
+// API routes
 app.get("/api/test", (req, res) => {
   res.json({ message: "API is working!" });
 });
 
-// Create order
 app.post("/api/orders", async (req, res) => {
   try {
     const { name, email, phone, pets, petCount, startDate, endDate, time, description } = req.body;
@@ -88,8 +89,15 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-// Dynamic port
-const PORT = process.env.PORT || 5000;
+// Serve React frontend
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use(express.static(path.join(__dirname, "dist"))); // make sure your React build folder is named "dist"
 
-// Start server
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
+// Dynamic port for Render
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
